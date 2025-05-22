@@ -46,6 +46,7 @@ def main():
         "Crawl Entire Site", 
         "Chat with Content", 
         "Content Analysis",
+        "Social Media Generator",
         "Search Content", 
         "View Library",
         "Export Data"
@@ -137,11 +138,20 @@ def main():
             # Progress tracking
             progress_bar = st.progress(0)
             status_text = st.empty()
-            results_container = st.empty()
             
             # Start crawling
             status_text.text("Starting crawl...")
             crawled_pages = crawler.crawl_site(site_url)
+            
+            # Show debug information FIRST
+            with st.expander("🔍 Crawler Debug Log", expanded=True):
+                debug_info = crawler.get_debug_info()
+                if debug_info:
+                    st.text("Debug Information:")
+                    for log_entry in debug_info:
+                        st.text(log_entry)
+                else:
+                    st.text("No debug information available")
             
             if crawled_pages:
                 status_text.text("Processing pages...")
@@ -232,7 +242,7 @@ def main():
         if not content_items:
             st.warning("⚠️ No content found in your library. Add some content first!")
             st.markdown("Use **'Add Content'** or **'Crawl Entire Site'** to build your content library.")
-            return
+            st.stop()
         
         st.success(f"📚 Connected to your library with {len(content_items)} items")
         
@@ -311,7 +321,7 @@ def main():
         if st.button("🗑️ Clear Chat History"):
             st.session_state.chat_history = []
             rag_system.clear_memory()
-            st.experimental_rerun()
+            st.rerun()
     
     elif mode == "Content Analysis":
         st.header("🔍 Content Analysis")
@@ -321,7 +331,7 @@ def main():
         
         if not content_items:
             st.warning("⚠️ No content found in your library. Add some content first!")
-            return
+            st.stop()
         
         st.success(f"📊 Analyzing {len(content_items)} items in your library")
         
@@ -425,6 +435,109 @@ def main():
                     except Exception as e:
                         st.error(f"Custom analysis failed: {str(e)}")
     
+    elif mode == "Social Media Generator":
+        st.header("📱 Social Media Post Generator")
+        st.markdown("Generate engaging social media content based on your content library using LangChain")
+        
+        content_items = database.get_all_content()
+        
+        if not content_items:
+            st.warning("⚠️ No content found in your library. Add some content first!")
+            st.stop()
+        
+        st.success(f"📚 Ready to generate posts from {len(content_items)} items in your library")
+        
+        # Social media options
+        st.subheader("📋 Generation Options")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Platform selection
+            platforms = st.multiselect(
+                "Select platforms:",
+                ["Twitter", "LinkedIn", "Instagram", "Thread"],
+                default=["Twitter", "LinkedIn"]
+            )
+        
+        with col2:
+            # Number of posts
+            num_posts = st.number_input(
+                "Number of posts per platform:",
+                min_value=1,
+                max_value=min(10, len(content_items)),
+                value=min(3, len(content_items))
+            )
+        
+        # Generate social media posts
+        if st.button("🚀 Generate Social Media Posts") and platforms:
+            with st.spinner("Creating engaging social media content..."):
+                results = analysis_agent.generate_social_media_posts(
+                    content_items, 
+                    platforms, 
+                    num_posts
+                )
+                
+                if results["success"]:
+                    st.success("✅ Social media posts generated successfully!")
+                    
+                    # Show style analysis
+                    if 'style_analysis' in results['social_posts']:
+                        with st.expander("📝 Detected Writing Style"):
+                            st.write("**Your Content's Style Profile:**")
+                            st.write(results['social_posts']['style_analysis'])
+                            st.write("*The generated posts will match this style.*")
+                    
+                    # Display posts by platform
+                    for platform, posts in results["social_posts"].items():
+                        if platform != 'style_analysis':  # Skip the style analysis entry
+                            st.subheader(f"📱 {platform} Posts (in your style)")
+                            
+                            for i, post_data in enumerate(posts):
+                                with st.expander(f"{platform} Post {i+1}: {post_data['content_title'][:50]}..."):
+                                    st.write("**Source:**", post_data['content_title'])
+                                    st.write("**Generated Post (matching your style):**")
+                                    st.write(post_data['post'])
+                                    if post_data['source_url'] != '#':
+                                        st.write("**Link:**", post_data['source_url'])
+                                    
+                                    # Copy button (using st.code for easy copying)
+                                    st.code(post_data['post'], language=None)
+                    
+                    # Download option
+                    import json
+                    posts_json = json.dumps(results["social_posts"], indent=2)
+                    st.download_button(
+                        label="📥 Download All Posts as JSON",
+                        data=posts_json,
+                        file_name="social_media_posts.json",
+                        mime="application/json"
+                    )
+                else:
+                    st.error(f"Failed to generate posts: {results['error']}")
+        
+        # Content marketing ideas section
+        st.subheader("💡 Content Marketing Ideas")
+        st.markdown("Generate creative content ideas based on your library")
+        
+        if st.button("🎯 Generate Marketing Ideas"):
+            with st.spinner("Generating creative content marketing ideas..."):
+                marketing_results = analysis_agent.generate_content_marketing_ideas(content_items)
+                
+                if marketing_results["success"]:
+                    st.success("✅ Content marketing ideas generated!")
+                    st.write(marketing_results["marketing_ideas"])
+                    
+                    # Download option
+                    st.download_button(
+                        label="📥 Download Marketing Ideas",
+                        data=marketing_results["marketing_ideas"],
+                        file_name="content_marketing_ideas.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.error(f"Failed to generate ideas: {marketing_results['error']}")
+    
     elif mode == "Search Content":
         st.header("🔍 Search Your Content")
         
@@ -461,7 +574,37 @@ def main():
         content_items = database.get_all_content()
         
         if content_items:
-            st.write(f"**Total items:** {len(content_items)}")
+            # Clear library functionality
+            if "confirm_clear" not in st.session_state:
+                st.session_state.confirm_clear = False
+                
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                st.write(f"**Total items:** {len(content_items)}")
+                
+            with col2:
+                if not st.session_state.confirm_clear:
+                    if st.button("🗑️ Clear Library"):
+                        st.session_state.confirm_clear = True
+                        st.rerun()
+                else:
+                    st.error("⚠️ Are you sure? This cannot be undone!")
+                    confirm_col1, confirm_col2 = st.columns(2)
+                    with confirm_col1:
+                        if st.button("✅ Yes, Delete All"):
+                            result = database.clear_library()
+                            if result["success"]:
+                                st.success("Library cleared!")
+                                st.session_state.confirm_clear = False
+                                st.rerun()
+                            else:
+                                st.error(f"Error: {result['message']}")
+                    
+                    with confirm_col2:
+                        if st.button("❌ Cancel"):
+                            st.session_state.confirm_clear = False
+                            st.rerun()
             
             # Convert to DataFrame for better display
             df = pd.DataFrame(content_items)
@@ -482,7 +625,7 @@ def main():
             st.info("Your library is empty. Add some content to get started!")
     
     else:  # Export Data
-        st.header("�� Export Your Data")
+        st.header("📤 Export Your Data")
         
         content_items = database.get_all_content()
         

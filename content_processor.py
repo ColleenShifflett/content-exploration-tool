@@ -10,7 +10,10 @@ import config
 
 class ContentProcessor:
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings(openai_api_key=config.OPENAI_API_KEY)
+        self.embeddings = OpenAIEmbeddings(
+            model="text-embedding-ada-002",
+            openai_api_key=config.OPENAI_API_KEY
+        )
         self.llm = ChatOpenAI(
             model_name=config.MODEL_NAME,
             openai_api_key=config.OPENAI_API_KEY,

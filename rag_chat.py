@@ -16,7 +16,10 @@ class RAGChatSystem:
             temperature=0.7
         )
         
-        self.embeddings = OpenAIEmbeddings(openai_api_key=config.OPENAI_API_KEY)
+        self.embeddings = OpenAIEmbeddings(
+            model="text-embedding-ada-002",
+            openai_api_key=config.OPENAI_API_KEY
+        )
         
         # Initialize memory for conversation
         self.memory = ConversationBufferMemory(

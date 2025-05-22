@@ -1,3 +1,4 @@
+import logging
 from langchain.agents import initialize_agent, AgentType, Tool
 from langchain_openai import ChatOpenAI
 from langchain.schema import Document
@@ -6,6 +7,9 @@ from langchain.prompts import PromptTemplate
 from typing import List, Dict
 import pandas as pd
 import config
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 class ContentAnalysisAgent:
     def __init__(self):
@@ -130,29 +134,41 @@ class ContentAnalysisAgent:
         )
         self.strategy_chain = LLMChain(llm=self.llm, prompt=strategy_prompt)
     
-    def _analyze_themes(self, input_text: str) -> str:
-        """Tool function for theme analysis using actual content"""
+    def _analyze_themes(self, content_items):
+        """Analyze themes from the current content."""
         try:
-            if not self.current_content:
-                return "No content loaded for analysis"
+            # Get current content summaries
+            content_samples = []
+            for item in content_items:
+                if item.summary:
+                    content_samples.append(f"Title: {item.title}\nSummary: {item.summary}")
             
-            # Extract actual themes from titles and summaries
-            themes_text = ""
-            for item in self.current_content[:8]:
-                title = item.get('title', 'Untitled')
-                summary = item.get('summary', 'No summary')[:200]
-                themes_text += f"Title: {title}\nSummary: {summary}\n---\n"
+            if not content_samples:
+                return "No content available for theme analysis."
             
-            theme_prompt = f"""
-            Analyze these ACTUAL content pieces and identify the main themes:
+            # Construct prompt for theme analysis
+            theme_prompt = PromptTemplate(
+                input_variables=["content_samples"],
+                template="""
+                Analyze the following content samples to identify key themes and patterns:
+
+                {content_samples}
+
+                Identify:
+                1. Main themes and topics
+                2. Common patterns in content style
+                3. Target audience indicators
+                4. Content purpose and goals
+
+                THEME ANALYSIS:"""
+            )
             
-            {themes_text}
+            # Create and run the chain
+            theme_chain = LLMChain(llm=self.llm, prompt=theme_prompt)
+            return theme_chain.run(content_samples="\n\n".join(content_samples))
             
-            List 3-5 specific themes with examples from the content:"""
-            
-            result = self.llm.predict(theme_prompt)
-            return result
         except Exception as e:
+            logger.error(f"Error in theme analysis: {str(e)}")
             return f"Error analyzing themes: {str(e)}"
     
     def _analyze_content_types(self, input_text: str) -> str:
@@ -218,6 +234,9 @@ class ContentAnalysisAgent:
                 if item.get('summary') and item.get('summary') != 'No summary':
                     sample_summaries.append(f"'{item.get('title')}': {item.get('summary')[:150]}...")
             
+            # Join summaries with newlines
+            sample_text = '\n'.join(sample_summaries[:3])
+            
             result = f"""Content Quality Assessment:
             - Total pieces: {quality_indicators['total_items']}
             - Items with AI summaries: {quality_indicators['items_with_summaries']}
@@ -225,7 +244,7 @@ class ContentAnalysisAgent:
             - Length range: {quality_indicators['shortest_content']}-{quality_indicators['longest_content']} words
             
             Sample content quality:
-            {chr(10).join(sample_summaries[:3])}"""
+            {sample_text}"""
             
             return result
         except Exception as e:
@@ -372,3 +391,124 @@ class ContentAnalysisAgent:
                 "error": str(e),
                 "success": False
             }
+
+    def generate_social_media_posts(self, content_items: List[Dict], platforms: List[str], num_posts: int) -> Dict:
+        """Generate social media posts for different platforms based on content library"""
+        try:
+            # Get current content summaries
+            content_samples = []
+            for item in content_items:
+                if item.get('summary'):
+                    content_samples.append(f"Title: {item.get('title', '')}\nSummary: {item.get('summary', '')}")
+            
+            if not content_samples:
+                return {
+                    "error": "No content available for social media post generation.",
+                    "success": False
+                }
+            
+            # Analyze writing style
+            style_prompt = PromptTemplate(
+                input_variables=["content_samples"],
+                template="Analyze the writing style of these content pieces:\n\n{content_samples}\n\nIdentify:\n1. Tone and voice\n2. Key messaging points\n3. Target audience\n4. Brand voice characteristics\n\nSTYLE ANALYSIS:"
+            )
+            
+            style_chain = LLMChain(llm=self.llm, prompt=style_prompt)
+            style_analysis = style_chain.run(content_samples="\n\n".join(content_samples))
+            
+            # Prepare statistics
+            content_stats = f"Total Items: {len(content_items)}\nItems with Summaries: {len(content_samples)}\nAverage Word Count: {sum(len(item.get('summary', '').split()) for item in content_items if item.get('summary')) / len(content_samples) if content_samples else 0:.1f}\nLength Range: {min(len(item.get('summary', '').split()) for item in content_items if item.get('summary')) if content_samples else 0} - {max(len(item.get('summary', '').split()) for item in content_items if item.get('summary')) if content_samples else 0} words"
+            
+            # Generate platform-specific posts
+            platform_styles = {
+                "LinkedIn": "professional, thought leadership, industry insights",
+                "Twitter": "concise, engaging, with relevant hashtags",
+                "Facebook": "conversational, community-focused, with call-to-action",
+                "Instagram": "visual, storytelling, with relevant hashtags"
+            }
+            
+            social_posts = {"style_analysis": style_analysis}
+            
+            for platform in platforms:
+                if platform not in platform_styles:
+                    continue
+                    
+                style = platform_styles[platform]
+                platform_posts = []
+                
+                # Select content items to generate posts from
+                selected_items = content_items[:num_posts]
+                
+                for item in selected_items:
+                    post_prompt = PromptTemplate(
+                        input_variables=["style_analysis", "content_stats", "platform", "style", "title", "summary"],
+                        template="Based on this content analysis and style:\n\nStyle Analysis:\n{style_analysis}\n\nContent Statistics:\n{content_stats}\n\nCreate a {platform} post based on this content:\nTitle: {title}\nSummary: {summary}\n\nThe post should be {style}.\nInclude relevant hashtags where appropriate.\n\nPOST:"
+                    )
+                    
+                    post_chain = LLMChain(llm=self.llm, prompt=post_prompt)
+                    post = post_chain.run(
+                        style_analysis=style_analysis,
+                        content_stats=content_stats,
+                        platform=platform,
+                        style=style,
+                        title=item.get('title', ''),
+                        summary=item.get('summary', '')[:300]
+                    )
+                    
+                    platform_posts.append({
+                        'content_title': item.get('title', ''),
+                        'post': post,
+                        'source_url': item.get('url', '#')
+                    })
+                
+                social_posts[platform] = platform_posts
+            
+            return {
+                "social_posts": social_posts,
+                "success": True
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating social media posts: {str(e)}")
+            return {
+                "error": str(e),
+                "success": False
+            }
+    
+    def generate_content_marketing_ideas(self, content_items):
+        """Generate creative marketing ideas based on the content library."""
+        try:
+            # Get current content summaries
+            content_samples = []
+            for item in content_items:
+                if item.get('summary'):
+                    content_samples.append(f"Title: {item.get('title', '')}\nSummary: {item.get('summary', '')}")
+            
+            if not content_samples:
+                return "No content available for marketing idea generation."
+            
+            # Construct prompt for marketing ideas
+            ideas_prompt = PromptTemplate(
+                input_variables=["content_samples"],
+                template="""
+                Based on these content pieces, generate creative marketing ideas:
+
+                {content_samples}
+
+                Generate 5 innovative marketing ideas that:
+                1. Leverage existing content effectively
+                2. Target the identified audience
+                3. Align with the content's style and tone
+                4. Include specific implementation suggestions
+                5. Consider different marketing channels
+
+                MARKETING IDEAS:"""
+            )
+            
+            # Create and run the chain
+            ideas_chain = LLMChain(llm=self.llm, prompt=ideas_prompt)
+            return ideas_chain.run(content_samples="\n\n".join(content_samples))
+            
+        except Exception as e:
+            logger.error(f"Error generating marketing ideas: {str(e)}")
+            return f"Error generating marketing ideas: {str(e)}"
