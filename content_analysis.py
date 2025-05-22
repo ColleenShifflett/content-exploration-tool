@@ -482,7 +482,10 @@ class ContentAnalysisAgent:
                     content_samples.append(f"Title: {item.get('title', '')}\nSummary: {item.get('summary', '')}")
             
             if not content_samples:
-                return "No content available for marketing idea generation."
+                return {
+                    "success": False,
+                    "error": "No content available for marketing idea generation."
+                }
             
             # Construct prompt for marketing ideas
             ideas_prompt = PromptTemplate(
@@ -504,8 +507,16 @@ class ContentAnalysisAgent:
             
             # Create and run the chain
             ideas_chain = LLMChain(llm=self.llm, prompt=ideas_prompt)
-            return ideas_chain.run(content_samples="\n\n".join(content_samples))
+            marketing_ideas = ideas_chain.run(content_samples="\n\n".join(content_samples))
+            
+            return {
+                "success": True,
+                "marketing_ideas": marketing_ideas
+            }
             
         except Exception as e:
             logger.error(f"Error generating marketing ideas: {str(e)}")
-            return f"Error generating marketing ideas: {str(e)}"
+            return {
+                "success": False,
+                "error": str(e)
+            }
