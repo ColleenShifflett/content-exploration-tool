@@ -53,48 +53,9 @@ class ContentDatabase:
         
         # Store embeddings in Chroma
         chunk_ids = [f"{content_id}_chunk_{i}" for i in range(len(chunks))]
-        chunk_metadata = [{"content_id": content_id, "chunk_index": i} for i in range(len(chunks))]
-        
         self.collection.add(
+            ids=chunk_ids,
             embeddings=embeddings,
             documents=chunks,
-            metadatas=chunk_metadata,
-            ids=chunk_ids
+            metadatas=[{"content_id": content_id} for _ in chunks]
         )
-    
-    def search_content(self, query: str, n_results: int = 5) -> List[Dict]:
-        """Search content using semantic similarity"""
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=n_results
-        )
-        
-        # Get content metadata for matching chunks
-        content_ids = list(set([meta['content_id'] for meta in results['metadatas'][0]]))
-        
-        conn = sqlite3.connect(self.sqlite_path)
-        cursor = conn.cursor()
-        placeholders = ','.join(['?' for _ in content_ids])
-        cursor.execute(f'''
-            SELECT * FROM content_items WHERE id IN ({placeholders})
-        ''', content_ids)
-        
-        metadata_results = cursor.fetchall()
-        conn.close()
-        
-        return {
-            'chunks': results['documents'][0],
-            'distances': results['distances'][0],
-            'metadata': metadata_results
-        }
-    
-    def get_all_content(self) -> List[Dict]:
-        """Get all content metadata"""
-        conn = sqlite3.connect(self.sqlite_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM content_items ORDER BY created_at DESC')
-        results = cursor.fetchall()
-        conn.close()
-        
-        columns = ['id', 'url', 'title', 'summary', 'content_type', 'word_count', 'created_at', 'updated_at']
-        return [dict(zip(columns, row)) for row in results]
