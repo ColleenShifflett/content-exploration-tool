@@ -66,8 +66,7 @@ class ContentAnalysisAgent:
         # Comprehensive analysis chain that uses actual content
         self.comprehensive_prompt = PromptTemplate(
             input_variables=["content_details", "content_stats"],
-            template="""
-            You are analyzing a specific content library. Provide detailed, personalized insights based on this ACTUAL content:
+            template="""You are analyzing a specific content library. Provide detailed, personalized insights based on this ACTUAL content:
 
             CONTENT DETAILS:
             {content_details}
@@ -96,8 +95,7 @@ class ContentAnalysisAgent:
         # Trend analysis chain
         trend_prompt = PromptTemplate(
             input_variables=["content_summaries"],
-            template="""
-            Analyze the following actual content summaries to identify patterns and trends:
+            template="""Analyze the following actual content summaries to identify patterns and trends:
 
             {content_summaries}
 
@@ -116,8 +114,7 @@ class ContentAnalysisAgent:
         # Strategy chain
         strategy_prompt = PromptTemplate(
             input_variables=["content_analysis"],
-            template="""
-            Based on this SPECIFIC content analysis, provide targeted strategic recommendations:
+            template="""Based on this SPECIFIC content analysis, provide targeted strategic recommendations:
 
             {content_analysis}
 
