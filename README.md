@@ -2,24 +2,25 @@
 
 An AI-powered content analysis tool that helps you transform web content into a searchable, intelligent inventory with advanced insights and social media generation capabilities.
 
-## Features
+## Features 
+View screenshot demos here: https://www.canva.com/design/DAGoSwrzpGs/cslVBGqfsA83QU5En40paw/view?utm_content=DAGoSwrzpGs&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h66d7c45e0b
 
-### 📊 Content Analysis
+### Content Analysis
 - **Website Crawling**: Extract content from entire websites
 - **Content Inventory**: Build a searchable database of all your content
 - **Semantic Search**: Find content by meaning, not just keywords
 
-### 🤖 AI-Powered Insights
+### AI-Powered Insights
 - **Theme Analysis**: Identify the main topics and patterns in your content
 - **Content Gaps**: Discover what topics you're missing
 - **Quality Assessment**: Evaluate content effectiveness
 
-### 💬 Interactive Chat
+### Interactive Chat
 - **RAG-Powered Conversations**: Chat with your content using LangChain's RAG
 - **Ask Questions**: "What topics do we cover most?" or "What's our stance on AI?"
 - **Source Citations**: See exactly which content the answers come from
 
-### 📱 Social Media Content
+### Social Media Content
 - **Style-Matched Generation**: Create social posts matching your content's voice
 - **Multi-Platform Support**: Twitter, LinkedIn, Instagram content variations
 - **Content Repurposing**: Turn articles into thread ideas, social posts, and more
